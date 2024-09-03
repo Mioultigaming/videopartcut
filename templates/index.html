@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Découpage de Vidéo en Lignes</title>
+    <!-- Utilisation de Bootstrap pour le style -->
+    <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Style pour la barre de chargement */
+        #loading {
+            display: none;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            color: #fff;
+            text-align: center;
+            padding-top: 20%;
+            z-index: 9999;
+        }
+        #loading img {
+            width: 50px;
+            height: 50px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center">Découpez votre Vidéo en Plusieurs Parties</h1>
+        <p class="text-center">Téléchargez une vidéo, définissez la durée de chaque découpage, et récupérez le fichier ZIP contenant toutes les vidéos découpées.</p>
+
+        <!-- Formulaire de téléchargement de fichier -->
+        <form id="uploadForm" action="{{ url_for('upload_file') }}" method="post" enctype="multipart/form-data" class="mt-4">
+            <div class="form-group">
+                <label for="file">Choisir une vidéo à télécharger :</label>
+                <input type="file" class="form-control-file" id="file" name="file" required>
+            </div>
+            <div class="form-group">
+                <label for="duration">Durée de chaque découpage (en secondes) :</label>
+                <input type="number" class="form-control" id="duration" name="duration" min="1" value="10" required>
+                <small class="form-text text-muted">Veuillez entrer une durée en secondes. Par défaut, 10 secondes.</small>
+            </div>
+            <button type="submit" class="btn btn-primary">Télécharger et Découper la Vidéo</button>
+        </form>
+
+        <!-- Afficher le lien de téléchargement si disponible -->
+        {% if session.get('zip_file') %}
+        <div class="alert alert-success mt-4">
+            Vidéo traitée avec succès. Téléchargez le fichier ZIP contenant toutes les vidéos découpées : 
+            <a href="{{ url_for('download_zip') }}" class="btn btn-success">Télécharger le ZIP</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Barre de chargement -->
+    <div id="loading">
+        <p>Traitement en cours, veuillez patienter...</p>
+        <img src="https://i.gifer.com/4V0L.gif" alt="Chargement"> <!-- Exemple de GIF de chargement -->
+    </div>
+
+    <!-- Scripts Bootstrap JS et jQuery -->
+    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        document.getElementById('uploadForm').addEventListener('submit', function() {
+            document.getElementById('loading').style.display = 'block';
+        });
+    </script>
+</body>
+</html>
