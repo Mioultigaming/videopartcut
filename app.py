@@ -180,4 +180,4 @@ if __name__ == '__main__':
         os.makedirs(app.config['UPLOAD_FOLDER'])
     if not os.path.exists(app.config['OUTPUT_FOLDER']):
         os.makedirs(app.config['OUTPUT_FOLDER'])
-    app.run(debug=True)
+    app.run(debug=True, port=10000)
