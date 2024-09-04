@@ -135,9 +135,9 @@ def cut_video(in_filename, part_time, output_folder, session_id):
             
             # Utilisation du filtre 'split' pour permettre des sorties multiples sans conflits
             video_split = input_stream.video.filter('split')
-            video = video_split.filter('setpts', 'PTS-STARTPTS')
+            video = video_split[0].filter('setpts', 'PTS-STARTPTS')
             audio_split = input_stream.audio.filter('asplit')
-            audio = audio_split.filter('asetpts', 'PTS-STARTPTS')
+            audio = audio_split[0].filter('asetpts', 'PTS-STARTPTS')
 
             # Créez le nom de fichier de sortie
             output_filename = os.path.join(output_folder, f"{session_id}_part{uploadvideos}.mp4")
@@ -157,11 +157,14 @@ def cut_video(in_filename, part_time, output_folder, session_id):
 
         return output_files
     except FileNotFoundError as fnf_error:
+        print(f"Erreur: {fnf_error}")
         raise Exception(fnf_error)
+    except ffmpeg.Error as ffmpeg_error:
+        print(f"Erreur lors de l'utilisation de ffmpeg: {ffmpeg_error.stderr.decode()}")
+        raise Exception(f"Erreur lors de l'utilisation de ffmpeg: {ffmpeg_error.stderr.decode()}")
     except Exception as e:
+        print(f"Erreur générale lors du découpage de la vidéo: {str(e)}")
         raise Exception(f"Erreur lors du découpage de la vidéo : {str(e)}")
-
-    
 
 @app.before_request
 def check_session():
