@@ -20,11 +20,10 @@ app.permanent_session_lifetime = timedelta(minutes=30)  # Durée de vie de la se
 csrf = CSRFProtect(app)
 
 # Configuration de la limitation des requêtes
-limiter = Limiter(app, key_func=lambda: request.remote_addr)
 
 app.config['UPLOAD_FOLDER'] = 'uploads'
 app.config['OUTPUT_FOLDER'] = 'outputs'
-app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
+#app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024  # 100 MB
 
 # Configurer la journalisation
 logging.basicConfig(filename='app.log', level=logging.INFO)
@@ -38,7 +37,6 @@ def index():
 
 @app.route('/upload', methods=['POST'])
 @csrf.exempt
-@limiter.limit("5 per minute")
 def upload_file():
     if 'file' not in request.files:
         return "Pas de fichier téléchargé", 400
@@ -80,7 +78,7 @@ def process_video():
         return "Pas de fichier à traiter", 400
 
     uploaded_files = session['uploaded_files']
-    part_time = session.get('part_time', 10)
+    part_time = session.get('part_time', 60)
 
     output_files = []
     for filepath in uploaded_files:
@@ -102,7 +100,7 @@ def process_video():
 
     session['zip_file'] = zip_filename
 
-    return f"Vidéos traitées avec succès. Téléchargez le fichier ZIP contenant toutes les vidéos <a href='/download_zip'>ici</a>."
+    return redirect("/")
 
 @app.route('/download_zip')
 def download_zip():
@@ -113,6 +111,14 @@ def download_zip():
 
 def cut_video(in_filename, part_time, output_folder, session_id):
     try:
+        # Vérifiez que le fichier d'entrée existe
+        if not os.path.exists(in_filename):
+            raise FileNotFoundError(f"Le fichier d'entrée {in_filename} est introuvable.")
+
+        # Assurez-vous que le dossier de sortie existe
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+
         probe = ffmpeg.probe(in_filename)
         video_stream = next((stream for stream in probe['streams'] if stream['codec_type'] == 'video'), None)
         if video_stream is None:
@@ -124,20 +130,38 @@ def cut_video(in_filename, part_time, output_folder, session_id):
         output_files = []
 
         while currenttime < videotime:
-            video = ffmpeg.input(in_filename, ss=currenttime, t=part_time).filter('setpts', 'PTS-STARTPTS')
-            audio = ffmpeg.input(in_filename, ss=currenttime, t=part_time).filter('aformat', 'sample_fmts=fltp|sample_rates=44100|channel_layouts=stereo').filter('asetpts', 'PTS-STARTPTS')
+            # Créez les entrées vidéo et audio
+            input_stream = ffmpeg.input(in_filename, ss=currenttime, t=part_time)
+            
+            # Utilisation du filtre 'split' pour permettre des sorties multiples sans conflits
+            video_split = input_stream.video.filter('split')
+            video = video_split.filter('setpts', 'PTS-STARTPTS')
+            audio_split = input_stream.audio.filter('asplit')
+            audio = audio_split.filter('asetpts', 'PTS-STARTPTS')
 
-            finalvideo = ffmpeg.concat(video, audio, v=1, a=1).node
+            # Créez le nom de fichier de sortie
             output_filename = os.path.join(output_folder, f"{session_id}_part{uploadvideos}.mp4")
             output_files.append(output_filename)
-            ffmpeg.output(finalvideo, output_filename).run()
+
+            # Concaténer la vidéo et l'audio en spécifiant explicitement les indices 'v' et 'a'
+            finalvideo = ffmpeg.concat(video, audio, v=1, a=1).node
+            
+            # Sortie de la vidéo finale
+            try:
+                ffmpeg.output(finalvideo[0], finalvideo[1], output_filename).run(overwrite_output=True)
+            except ffmpeg.Error as e:
+                raise Exception(f"Erreur lors de l'exécution de ffmpeg : {e.stderr.decode()}")
+
             currenttime += part_time
             uploadvideos += 1
 
         return output_files
+    except FileNotFoundError as fnf_error:
+        raise Exception(fnf_error)
     except Exception as e:
-        logging.error(f"Erreur lors du découpage de la vidéo : {str(e)}")
         raise Exception(f"Erreur lors du découpage de la vidéo : {str(e)}")
+
+    
 
 @app.before_request
 def check_session():
@@ -172,4 +196,4 @@ if __name__ == '__main__':
         os.makedirs(app.config['UPLOAD_FOLDER'])
     if not os.path.exists(app.config['OUTPUT_FOLDER']):
         os.makedirs(app.config['OUTPUT_FOLDER'])
-    app.run(debug=False)
+    app.run(debug=True)
