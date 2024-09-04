@@ -135,9 +135,9 @@ def cut_video(in_filename, part_time, output_folder, session_id):
             
             # Utilisation du filtre 'split' pour permettre des sorties multiples sans conflits
             video_split = input_stream.video.filter('split')
-            video = video_split[0].filter('setpts', 'PTS-STARTPTS')
+            video = video_split.filter('setpts', 'PTS-STARTPTS')
             audio_split = input_stream.audio.filter('asplit')
-            audio = audio_split[0].filter('asetpts', 'PTS-STARTPTS')
+            audio = audio_split.filter('asetpts', 'PTS-STARTPTS')
 
             # Créez le nom de fichier de sortie
             output_filename = os.path.join(output_folder, f"{session_id}_part{uploadvideos}.mp4")
