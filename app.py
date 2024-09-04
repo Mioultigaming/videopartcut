@@ -8,7 +8,6 @@ from datetime import timedelta
 from urllib.parse import quote as url_quote
 from flask_wtf.csrf import CSRFProtect
 from flask_limiter import Limiter
-from flask_talisman import Talisman
 import logging
 
 # Configuration de l'application Flask
@@ -16,13 +15,6 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)  # Utiliser une clé secrète générée aléatoirement
 app.permanent_session_lifetime = timedelta(minutes=30)  # Durée de vie de la session
 
-# Configuration des en-têtes de sécurité HTTP
-talisman = Talisman(app, content_security_policy={
-    'default-src': ['\'self\''],
-    'img-src': ['\'self\'', 'data:'],
-    'script-src': ['\'self\''],
-    'style-src': ['\'self\'']
-})
 
 # Configuration du CSRF
 csrf = CSRFProtect(app)
