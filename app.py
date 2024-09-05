@@ -35,42 +35,50 @@ def allowed_file(filename):
 def index():
     return render_template('index.html')
 
+logging.basicConfig(level=logging.DEBUG)
+
 @app.route('/upload', methods=['POST'])
 @csrf.exempt
 def upload_file():
-    if 'file' not in request.files:
-        return "Pas de fichier téléchargé", 400
-
-    files = request.files.getlist('file')
-    if not files:
-        return "Pas de fichier sélectionné", 400
-
     try:
+        if 'file' not in request.files:
+            logging.error("Aucun fichier dans la requête")
+            return "Pas de fichier téléchargé", 400
+
+        files = request.files.getlist('file')
+        if not files:
+            logging.error("Aucun fichier sélectionné")
+            return "Pas de fichier sélectionné", 400
+
         part_time = int(request.form.get('duration', 10))
         if part_time <= 0:
             raise ValueError("La durée doit être un nombre entier positif.")
-    except ValueError as e:
-        return f"Durée invalide : {str(e)}", 400
+        
+        session.permanent = True  # Marquer la session comme permanente
+        session_id = str(uuid.uuid4())
+        session['session_id'] = session_id
+        uploaded_files = []
 
-    session.permanent = True  # Marquer la session comme permanente
-    session_id = str(uuid.uuid4())
-    uploaded_files = []
+        for file in files:
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                unique_filename = f"{session_id}_{filename}"
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
+                logging.debug(f"Enregistrement du fichier : {filepath}")
+                file.save(filepath)
+                uploaded_files.append(filepath)
+            else:
+                logging.error(f"Type de fichier non autorisé : {file.filename}")
+                return "Type de fichier non autorisé", 400
 
-    for file in files:
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            unique_filename = f"{session_id}_{filename}"
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
-            file.save(filepath)
-            uploaded_files.append(filepath)
-        else:
-            return "Type de fichier non autorisé", 400
+        session['uploaded_files'] = uploaded_files
+        session['part_time'] = part_time
 
-    session['uploaded_files'] = uploaded_files
-    session['part_time'] = part_time
-    session['session_id'] = session_id  # Ajouter l'ID de session pour les fichiers
-
-    return redirect(url_for('process_video'))
+        logging.info("Fichiers téléchargés avec succès")
+        return redirect(url_for('process_video'))
+    except Exception as e:
+        logging.exception(f"Erreur lors du téléchargement du fichier : {e}")
+        return f"Erreur lors du téléchargement du fichier : {str(e)}", 500
 
 @app.route('/process')
 def process_video():
